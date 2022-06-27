@@ -1,11 +1,16 @@
 #include "simulation/cubicmesh.hpp"
+#include "control/simstate.hpp"
+#include <engine/game/core/game.hpp>
 #include <iostream>
 
 constexpr double c = 1.0;
 
 int main()
 {
-	using namespace sim;
+	game::Game game;
+	game.run(std::make_unique<control::SimState>());
+
+/*	using namespace sim;
 
 	using FloatT = double;
 	using Mesh = CubicMesh<FloatT>;
@@ -38,8 +43,8 @@ int main()
 			for (Index ix = 0; ix < size.x; ++ix)
 				std::cout << mesh.B(ix, 16, iy).x << " ";
 			std::cout << "\n";
-		}*/
+		}
 	//	std::cout << mesh.E(16, 16, 16).x << "\n";
 		integrator.step(mesh);
-	}
+	}*/
 }
