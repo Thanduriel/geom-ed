@@ -15,9 +15,15 @@ namespace control {
 		using Mesh = sim::CubicMesh<FloatT>;
 		using Index = Mesh::Index;
 
+#ifdef NDEBUG
+		constexpr int64_t n = 64;
+		constexpr FloatT ds = 0.5;
+		constexpr FloatT dt = 1.0 / 60.0;
+#else
 		constexpr int64_t n = 32;
 		constexpr FloatT ds = 1.0;
 		constexpr FloatT dt = 1.0 / 60.0;
+#endif
 
 		m_world.getResource<graphics::Camera>().setView(
 			glm::lookAt(glm::vec3(0.f, 0.f, 60.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 1.f, 0.f)));
@@ -25,7 +31,7 @@ namespace control {
 		graphics::Device::setClearColor(glm::vec4(0.2f, 0.1f, 0.2f, 1.f));
 
 		m_world.addResource<Mesh>(Mesh::SizeVec{ n,n,n }, Mesh::Vec{ ds,ds,ds });
-		m_world.addSystem(std::make_unique<systems::SimSystem>(ds, dt), game::SystemGroup::Process);
+		m_world.addSystem(std::make_unique<game::systems::SimSystem>(ds, dt), game::SystemGroup::Process);
 		
 		m_world.addSystem(std::make_unique<game::systems::InputSystem>(), game::SystemGroup::Process);
 		m_world.addSystem(std::make_unique<game::systems::Transforms>(), game::SystemGroup::Process);

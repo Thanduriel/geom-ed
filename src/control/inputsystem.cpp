@@ -82,8 +82,8 @@ namespace systems {
 
 		const glm::vec3 right = cameraPos.z < 0.99f ? glm::cross(cameraPos, glm::vec3(0.f, 0.f, 1.f))
 			: glm::cross(glm::vec3(cosPhi, sinPhi, 0.f), cameraPos);
-		const glm::vec3 up = glm::cross(cameraPos, right);
+		const glm::vec3 up = -glm::cross(cameraPos, right);
 
-		_camera.setView(glm::lookAt(m_cameraDistance * cameraPos, glm::vec3(0.f, 0.f, 0.f), -up));
+		_camera.setView(glm::lookAt(m_cameraDistance * cameraPos, glm::vec3(0.f, 0.f, 0.f), up));
 	}
 }}

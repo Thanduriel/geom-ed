@@ -80,9 +80,8 @@ namespace systems{
 		_comps.execute([&](Entity ent, const Slice& slice, Position& pos)
 			{
 				int layer = slice.layer % _mesh.size().z;
-				if (layer < 0) layer += _mesh.size().z;
-
-				pos.value.z = -_mesh.size().z / 2.f + static_cast<float>(slice.layer);
+				if (layer < 0) layer += static_cast<int>(_mesh.size().z);
+				pos.value.z = -_mesh.size().z / 2.f + static_cast<float>(layer);
 				getComp<TransformNeedsUpdate>(_comps).insert(ent);
 
 				float maxLen = 0.f;
@@ -101,7 +100,7 @@ namespace systems{
 						// quadratic -1.f * s * s * s * s + 2*s
 						const float s1 = 1.f - s;
 						const float sq = s1 * s1;
-						const glm::vec3 color = sampleColorMap(1.f - sq * sq * sq);
+						const glm::vec3 color = sampleColorMap(1.f - sq * sq);
 
 						m_textureBuffer[xFlat + yFlat] = color.r;
 						m_textureBuffer[xFlat + yFlat + 1] = color.g;

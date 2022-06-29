@@ -4,8 +4,33 @@
 #include <random>
 #include <cassert>
 #include <iostream>
+#include <execution>
+#include <ranges>
+#include <algorithm>
 
 namespace sim {
+
+	template<typename It, typename Fn>
+	void runMultiThreaded(It _begin, It _end, Fn _fn, int _numThreads = 1)
+	{
+		if (_numThreads == 1)
+			_fn(_begin, _end);
+		else
+		{
+			std::vector<std::thread> threads;
+			threads.reserve(_numThreads - 1);
+
+			using DistanceType = decltype(_end - _begin);
+			const DistanceType n = static_cast<DistanceType>(_numThreads);
+			const DistanceType rows = (_end - _begin) / n;
+			for (DistanceType i = 0; i < n - 1; ++i)
+				threads.emplace_back(_fn, i * rows, (i + 1) * rows);
+			_fn((n - 1) * rows, _end);
+
+			for (auto& thread : threads)
+				thread.join();
+		}
+	}
 
 	template<typename T>
 	struct Vec3 
@@ -43,6 +68,7 @@ namespace sim {
 		//	std::generate_n(m_J.get(), m_numElem, gen);
 		//	J(_gridSize.x / 2, _gridSize.y / 2, _gridSize.z / 2) = Vec{0.0,0.0,-10.0};
 			E(_gridSize.x / 2, _gridSize.y / 2, _gridSize.z / 2) = Vec{ 1.0,0.0,0.0 };
+			E(_gridSize.x / 4, _gridSize.y / 4, _gridSize.z / 2) = Vec{ -1.0,0.0,0.0 };
 		//	E(_gridSize.x / 2+1, _gridSize.y / 2, _gridSize.z / 2) = Vec{ 0.0,2.0,1.0 };
 		}
 
@@ -117,8 +143,8 @@ namespace sim {
 	class CubicIntegrator
 	{
 	public:
-		CubicIntegrator(T _maxCellSize, T _dt = 0)
-			: m_dt(_dt)
+		CubicIntegrator(T _maxCellSize, T _dt = 0, int _numThreads = 1)
+			: m_dt(_dt), m_numThreads(_numThreads)
 		{
 			constexpr T sqrt3 = 1.7320508075688772;
 
@@ -139,45 +165,52 @@ namespace sim {
 			const Vec3<T>& cellSize = mesh.cellSize();
 
 			// dF = 0
-			for(Index iz = 0; iz < size.z; ++iz)
-				for (Index iy = 0; iy < size.y; ++iy)
-					for (Index ix = 0; ix < size.x; ++ix)
-					{
-						Vec3<T>& B = mesh.B(ix, iy, iz);
-						const Vec3<T>& E = mesh.E(ix, iy, iz);
-						B.x += m_dt * ((mesh.E(ix, iy, iz + 1).y - E.y) / cellSize.z
-							- (mesh.E(ix, iy + 1, iz).z - E.z) / cellSize.y);
-						B.y += m_dt * ((mesh.E(ix+1, iy, iz).z - E.z) / cellSize.x
-							- (mesh.E(ix, iy, iz+1).x - E.x) / cellSize.z);
-						B.z += m_dt * ((mesh.E(ix, iy + 1, iz).x - E.x) / cellSize.y
-							- (mesh.E(ix+1, iy, iz).y - E.y) / cellSize.x);
-					}
+			runMultiThreaded(int64_t(0), size.z, [&] (Index zStart, Index zEnd)
+				{
+					for (Index iz = zStart; iz < zEnd; ++iz)
+						for (Index iy = 0; iy < size.y; ++iy)
+							for (Index ix = 0; ix < size.x; ++ix)
+							{
+								Vec3<T>& B = mesh.B(ix, iy, iz);
+								const Vec3<T>& E = mesh.E(ix, iy, iz);
+								B.x += m_dt * ((mesh.E(ix, iy, iz + 1).y - E.y) / cellSize.z
+									- (mesh.E(ix, iy + 1, iz).z - E.z) / cellSize.y);
+								B.y += m_dt * ((mesh.E(ix + 1, iy, iz).z - E.z) / cellSize.x
+									- (mesh.E(ix, iy, iz + 1).x - E.x) / cellSize.z);
+								B.z += m_dt * ((mesh.E(ix, iy + 1, iz).x - E.x) / cellSize.y
+									- (mesh.E(ix + 1, iy, iz).y - E.y) / cellSize.x);
+							}
+				}, m_numThreads);
 			
 			// d*F = J'
-			for (Index iz = 0; iz < size.z; ++iz)
-				for (Index iy = 0; iy < size.y; ++iy)
-					for (Index ix = 0; ix < size.x; ++ix)
-					{
-						constexpr T κE = 1.0;
-						const Vec3<T>& H = mesh.H(ix, iy, iz);
-						const Vec3<T>& J = mesh.J(ix, iy, iz);
-						Vec3<T>& E = mesh.E(ix, iy, iz);
-						E.x = κE* E.x + m_dt * ((H.z - mesh.H(ix,iy-1,iz).z) / cellSize.y
-							- (H.y - mesh.H(ix, iy, iz - 1).y) / cellSize.z
-							- J.x);
-						E.y = κE * E.y + m_dt * ((H.x - mesh.H(ix, iy, iz - 1).x) / cellSize.z
-							- (H.z - mesh.H(ix - 1, iy, iz).z) / cellSize.x
-							- J.y);
-						E.z = κE * E.z + m_dt * ((H.y - mesh.H(ix - 1, iy, iz).y) / cellSize.x
-							- (H.x - mesh.H(ix, iy - 1, iz).x) / cellSize.y
-							- J.z);
-					}
+			runMultiThreaded(int64_t(0), size.z, [&](Index zStart, Index zEnd)
+				{
+					for (Index iz = zStart; iz < zEnd; ++iz)
+						for (Index iy = 0; iy < size.y; ++iy)
+							for (Index ix = 0; ix < size.x; ++ix)
+							{
+								constexpr T κE = 1.0;
+								const Vec3<T>& H = mesh.H(ix, iy, iz);
+								const Vec3<T>& J = mesh.J(ix, iy, iz);
+								Vec3<T>& E = mesh.E(ix, iy, iz);
+								E.x = κE * E.x + m_dt * ((H.z - mesh.H(ix, iy - 1, iz).z) / cellSize.y
+									- (H.y - mesh.H(ix, iy, iz - 1).y) / cellSize.z
+									- J.x);
+								E.y = κE * E.y + m_dt * ((H.x - mesh.H(ix, iy, iz - 1).x) / cellSize.z
+									- (H.z - mesh.H(ix - 1, iy, iz).z) / cellSize.x
+									- J.y);
+								E.z = κE * E.z + m_dt * ((H.y - mesh.H(ix - 1, iy, iz).y) / cellSize.x
+									- (H.x - mesh.H(ix, iy - 1, iz).x) / cellSize.y
+									- J.z);
+							}
+				}, m_numThreads);
 
 		}
 
 		T dt() const { return m_dt; }
 	private:
 		T m_dt;
+		int m_numThreads;
 	};
 
 	using SimpleCubicMesh = CubicMesh<double>;
