@@ -61,9 +61,9 @@ namespace systems{
 				if (slice.texture)
 					return;
 
-				glm::quat rot = glm::identity<glm::quat>();//glm::quatLookAt(glm::vec3(0.f, -1.f, 0.f), glm::vec3(1.f, 0.f, 0.f));
+				glm::quat rot = glm::identity<glm::quat>();
 				getComp<Rotation>(_comps).insert(ent, rot);
-				getComp<Position>(_comps).insert(ent, glm::vec3(-_mesh.size().x / 2.f, -_mesh.size().y / 2.f, 0.f));
+				getComp<Position>(_comps).insert(ent, glm::vec3(-_mesh.size().x / 2.f, -_mesh.size().y / 2.f, -_mesh.size().z / 2.f));
 				getComp<Scale>(_comps).insert(ent, glm::vec3(_mesh.size().x, _mesh.size().y, 1.f));
 				getComp<Transform>(_comps).insert(ent);
 				slice.texture.reset(graphics::Texture2D::create(
@@ -79,15 +79,22 @@ namespace systems{
 		std::vector<float> magnitude;
 		_comps.execute([&](Entity ent, const Slice& slice, Position& pos)
 			{
+				int layer = slice.layer % _mesh.size().z;
+				if (layer < 0) layer += _mesh.size().z;
+
+				pos.value.z = -_mesh.size().z / 2.f + static_cast<float>(slice.layer);
+				getComp<TransformNeedsUpdate>(_comps).insert(ent);
+
 				float maxLen = 0.f;
-				pos.value.z = static_cast<float>(slice.layer);
 				for (Index iy = 0; iy < size.y; ++iy)
 				{
 					const Index yFlat = iy * size.x * 4;
 					for (Index ix = 0; ix < size.x; ++ix)
 					{
 						const Index xFlat = ix * 4;
-						const auto& field = _mesh.E(ix, iy, slice.layer);
+						const auto& field = slice.field == Slice::Field::E ? 
+							_mesh.E(ix, iy, slice.layer)
+							: _mesh.B(ix, iy, slice.layer);
 						const float len = static_cast<float>(std::sqrt(field.x * field.x + field.y * field.y + field.z * field.z));
 						maxLen = std::max(len, maxLen);
 						const float s = static_cast<float>(len) / m_maxLen;
@@ -103,7 +110,6 @@ namespace systems{
 					}
 				}
 				m_maxLen = maxLen;
-				std::cout << m_maxLen << "\n";
 				slice.texture->fillMipMap(0, reinterpret_cast<uint8_t*>(m_textureBuffer.data()), false, graphics::PixelDataType::FLOAT);
 			});
 	}

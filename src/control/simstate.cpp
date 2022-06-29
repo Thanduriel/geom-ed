@@ -4,6 +4,7 @@
 #include "rendersystem.hpp"
 #include <engine/game/systems/transforms.hpp>
 #include <engine/game/systems/meshdrawnig.hpp>
+#include <engine/graphics/core/device.hpp>
 
 namespace control {
 
@@ -21,9 +22,11 @@ namespace control {
 		m_world.getResource<graphics::Camera>().setView(
 			glm::lookAt(glm::vec3(0.f, 0.f, 60.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 1.f, 0.f)));
 
+		graphics::Device::setClearColor(glm::vec4(0.2f, 0.1f, 0.2f, 1.f));
 
 		m_world.addResource<Mesh>(Mesh::SizeVec{ n,n,n }, Mesh::Vec{ ds,ds,ds });
 		m_world.addSystem(std::make_unique<systems::SimSystem>(ds, dt), game::SystemGroup::Process);
+		
 		m_world.addSystem(std::make_unique<game::systems::InputSystem>(), game::SystemGroup::Process);
 		m_world.addSystem(std::make_unique<game::systems::Transforms>(), game::SystemGroup::Process);
 

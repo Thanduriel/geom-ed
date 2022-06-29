@@ -13,7 +13,13 @@ namespace game {
 namespace components {
 	struct Slice
 	{
-		Slice(int _layer) : layer(_layer) {}
+		Slice(int _layer) : layer(_layer), field(Field::E) {}
+
+		enum struct Field {
+			E,B
+		};
+
+		Field field;
 		int layer;
 		std::unique_ptr<graphics::Texture2D> texture;
 	};

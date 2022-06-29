@@ -8,7 +8,7 @@ namespace systems {
 	void SimSystem::update(float _dt, sim::SimpleCubicMesh& _mesh)
 	{
 		m_expectedTime += _dt;
-		while (static_cast<float>(m_totalTime) < m_expectedTime)
+	//	while (static_cast<float>(m_totalTime) < m_expectedTime)
 		{
 			m_integrator.step(_mesh);
 			m_totalTime += m_integrator.dt();
