@@ -63,7 +63,7 @@ namespace systems{
 
 				glm::quat rot = glm::identity<glm::quat>();
 				getComp<Rotation>(_comps).insert(ent, rot);
-				getComp<Position>(_comps).insert(ent, glm::vec3(-_mesh.size().x / 2.f, -_mesh.size().y / 2.f, -_mesh.size().z / 2.f));
+				getComp<Position>(_comps).insert(ent, glm::vec3(0.f));
 				getComp<Scale>(_comps).insert(ent, glm::vec3(_mesh.size().x, _mesh.size().y, 1.f));
 				getComp<Transform>(_comps).insert(ent);
 				slice.texture.reset(graphics::Texture2D::create(

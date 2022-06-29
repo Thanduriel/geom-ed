@@ -9,7 +9,7 @@
 namespace control {
 
 	SimState::SimState()
-		: m_world(graphics::Camera(45.f, 0.01f, 200.f))
+		: m_world(graphics::Camera(45.f, 0.01f, 500.f))
 	{
 		using FloatT = double;
 		using Mesh = sim::CubicMesh<FloatT>;

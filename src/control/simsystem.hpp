@@ -5,14 +5,16 @@
 #include <engine/game/core/componentaccess.hpp>
 
 namespace game {
-namespace systems {
-
-	struct Charge 
+namespace components{
+	struct Charge
 	{
-		Charge(float _mass, float _charge) : mass(_mass), charge(_charge) {}
+		Charge(float _mass, float _charge) : mass(_mass), q(_charge) {}
 		float mass;
-		float charge;
+		float q; // charge of the particle
 	};
+}
+
+namespace systems {
 
 	class SimSystem 
 	{
@@ -22,8 +24,9 @@ namespace systems {
 		using Components = ComponentTuple<
 			WriteAccess<components::Position>
 			, WriteAccess<components::Velocity>
+			, ReadAccess<components::Charge>
 			, WriteAccess<components::TransformNeedsUpdate>>;
-		void update(float _dt, sim::SimpleCubicMesh& _mesh);
+		void update(Components _comps, float _dt, sim::SimpleCubicMesh& _mesh);
 	private:
 		sim::SimpleCubicIntegrator m_integrator;
 		sim::SimpleCubicMesh::FloatT m_totalTime;

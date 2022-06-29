@@ -67,8 +67,8 @@ namespace sim {
 		//	std::generate_n(m_B.get(), m_numElem, gen);
 		//	std::generate_n(m_J.get(), m_numElem, gen);
 		//	J(_gridSize.x / 2, _gridSize.y / 2, _gridSize.z / 2) = Vec{0.0,0.0,-10.0};
-			E(_gridSize.x / 2, _gridSize.y / 2, _gridSize.z / 2) = Vec{ 1.0,0.0,0.0 };
-			E(_gridSize.x / 4, _gridSize.y / 4, _gridSize.z / 2) = Vec{ -1.0,0.0,0.0 };
+			E(_gridSize.x / 2, _gridSize.y / 2, _gridSize.z / 2) = Vec{ 8.0,0.0,0.0 };
+			E(_gridSize.x / 4, _gridSize.y / 4, _gridSize.z / 2) = Vec{ -8.0,0.0,0.0 };
 		//	E(_gridSize.x / 2+1, _gridSize.y / 2, _gridSize.z / 2) = Vec{ 0.0,2.0,1.0 };
 		}
 
@@ -82,6 +82,9 @@ namespace sim {
 		const Vec& J(Index _x, Index _y, Index _z) const { return m_J[validFlatIndex({ _x,_y,_z })]; }
 		Vec& J(Index _x, Index _y, Index _z) { return m_J[validFlatIndex({ _x,_y,_z })]; }
 		
+		const Vec& smoothE(T _x, T _y, T _z) const { return E(static_cast<Index>(_x), static_cast<Index>(_y), static_cast<Index>(_z)); }
+		const Vec& smoothB(T _x, T _y, T _z) const { return B(static_cast<Index>(_x), static_cast<Index>(_y), static_cast<Index>(_z)); }
+
 		// raw access to the fields
 		const Vec* E() const { return m_E.get(); }
 		const Vec* B() const { return m_B.get(); }
