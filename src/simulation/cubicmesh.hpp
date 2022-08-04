@@ -109,12 +109,25 @@ namespace sim {
 				+ (B(_x, _y, _z+1).z - B_.z) / m_cellSize.z;
 		}
 
+		// Returns a valid index by handling periodic boundary conditions.
 		SizeVec validIndex(const SizeVec& _ind) const
 		{
 			SizeVec v{ _ind.x % m_size.x, _ind.y % m_size.y, _ind.z % m_size.z };
 			if (v.x < 0) v.x += m_size.x;
 			if (v.y < 0) v.y += m_size.y;
 			if (v.z < 0) v.z += m_size.z;
+			return v;
+		}
+
+		template<std::floating_point T>
+		Vec3<T> validPosition(T _x, T _y, T _z) const
+		{
+			Vec3<T> v{ std::fmod(_x, static_cast<T>(m_size.x))
+				, std::fmod(_y, static_cast<T>(m_size.y))
+				, std::fmod(_z, static_cast<T>(m_size.z)) };
+			if (v.x < 0.f) v.x += m_size.x;
+			if (v.y < 0.f) v.y += m_size.y;
+			if (v.z < 0.f) v.z += m_size.z;
 			return v;
 		}
 
@@ -159,6 +172,8 @@ namespace sim {
 			else if (m_dt >= _maxCellSize / sqrt3)
 				std::cout << "[Warning] The step-size is to large, the simulation will be unstable.\n";
 		}
+
+		
 
 		void step(CubicMesh<T>& _mesh)
 		{

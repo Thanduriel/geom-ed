@@ -79,9 +79,7 @@ namespace systems{
 		std::vector<float> magnitude;
 		_comps.execute([&](Entity ent, const Slice& slice, Position& pos)
 			{
-				int layer = slice.layer % _mesh.size().z;
-				if (layer < 0) layer += static_cast<int>(_mesh.size().z);
-				pos.value.z = -_mesh.size().z / 2.f + static_cast<float>(layer);
+				pos.value.z = static_cast<float>(slice.layer);
 				getComp<TransformNeedsUpdate>(_comps).insert(ent);
 
 				float maxLen = 0.f;
@@ -111,6 +109,22 @@ namespace systems{
 				m_maxLen = maxLen;
 				slice.texture->fillMipMap(0, reinterpret_cast<uint8_t*>(m_textureBuffer.data()), false, graphics::PixelDataType::FLOAT);
 			});
+
 	}
 
+	void TailDrawing::update(Components _comps, const graphics::Camera& _camera)
+	{
+		using namespace components;
+		_comps.execute([this](PreviousPosition& prevPos, const Position& pos)
+			{
+				constexpr glm::vec4 color(0.f, 1.f, 0.f, 0.5f);
+
+				if (const glm::vec3 d = pos.value - prevPos.value;glm::dot(d,d) > 0.25 * 0.25)
+				{
+					m_lineRenderer.draw(prevPos.value, pos.value, color, 0.5f);
+					prevPos.value = pos.value;
+				}
+			});
+		m_lineRenderer.present(_camera);
+	}
 }}

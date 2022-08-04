@@ -1,5 +1,6 @@
 #pragma once
 
+#include "components.hpp"
 #include "simulation/cubicmesh.hpp"
 #include <engine/game/core/componentaccess.hpp>
 #include <engine/game/components/simpleComponents.hpp>
@@ -7,6 +8,7 @@
 #include <engine/graphics/renderer/mesh.hpp>
 #include <engine/graphics/core/sampler.hpp>
 #include <engine/graphics/core/texture.hpp>
+#include <engine/graphics/renderer/linerenderer.hpp>
 
 namespace game {
 
@@ -47,5 +49,17 @@ namespace systems {
 		float m_maxLen;
 		graphics::Mesh m_mesh;
 		graphics::Sampler m_sampler;
+		
+	};
+
+	class TailDrawing
+	{
+	public:
+		using Components = ComponentTuple<
+			ReadAccess<components::Position>
+			, WriteAccess<components::PreviousPosition>>;
+		void update(Components _components, const graphics::Camera& _camera);
+	private:
+		graphics::LineRenderer m_lineRenderer;
 	};
 }}

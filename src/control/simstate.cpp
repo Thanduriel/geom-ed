@@ -9,7 +9,7 @@
 namespace control {
 
 	SimState::SimState()
-		: m_world(graphics::Camera(45.f, 0.01f, 500.f))
+		: m_world(graphics::Camera(45.f, 0.1f, 500.f))
 	{
 		using FloatT = double;
 		using Mesh = sim::CubicMesh<FloatT>;
@@ -37,7 +37,8 @@ namespace control {
 		m_world.addSystem(std::make_unique<game::systems::Transforms>(), game::SystemGroup::Process);
 
 		auto renderSystem = m_world.addSystem(std::make_unique<game::systems::RenderSystem>(), game::SystemGroup::Draw);
-		m_world.addSystem(std::make_unique<game::systems::MeshDrawing>(), game::SystemGroup::Draw, renderSystem);
+		auto meshDrawing = m_world.addSystem(std::make_unique<game::systems::MeshDrawing>(), game::SystemGroup::Draw, renderSystem);
+		m_world.addSystem(std::make_unique<game::systems::TailDrawing>(), game::SystemGroup::Draw, meshDrawing);
 	}
 
 	void SimState::process(float _deltaTime)

@@ -23,6 +23,7 @@ namespace systems {
 			WriteAccess<components::Transform>,
 			WriteAccess<components::TransformNeedsUpdate>,
 			WriteAccess<components::Charge>,
+			WriteAccess<components::PreviousPosition>,
 			ReadAccess<components::Slice>>;
 		void update(Components _comps, EntityCreator& _creator
 			, graphics::Camera& _camera

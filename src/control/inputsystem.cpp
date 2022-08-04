@@ -47,7 +47,7 @@ namespace systems {
 
 	void InputSystem::update(Components _comps, game::EntityCreator& _creator
 		, graphics::Camera& _camera
-		, const sim::CubicMesh<double>& _mesh)
+		, const sim::SimpleCubicMesh& _mesh)
 	{
 		static const graphics::Texture2D& texture = *graphics::Texture2DManager::get(
 			"textures/planet1.png", m_sampler);
@@ -69,9 +69,17 @@ namespace systems {
 
 		// slice selection
 		if (m_inputs->isKeyPressed(Actions::LAYER_UP))
+		{
 			++slice.layer;
+			if (slice.layer >= _mesh.size().z) 
+				slice.layer -= static_cast<int>(_mesh.size().z);
+		}
 		if (m_inputs->isKeyPressed(Actions::LAYER_DOWN))
+		{
 			--slice.layer;
+			if (slice.layer < 0)
+				slice.layer += static_cast<int>(_mesh.size().z);
+		}
 
 		// camera movement
 		if (const float scroll = InputManager::getScroll().y)
@@ -96,21 +104,33 @@ namespace systems {
 			: glm::cross(glm::vec3(cosPhi, sinPhi, 0.f), cameraPos);
 		const glm::vec3 up = -glm::cross(cameraPos, right);
 
-		const glm::vec3 meshCenter(_mesh.size().x / 2.f, _mesh.size().y / 2.f, -_mesh.size().z / 2.f);
+		const glm::vec3 meshCenter(_mesh.size().x / 2.f, _mesh.size().y / 2.f, _mesh.size().z / 2.f);
+		const glm::vec3 cp = m_cameraDistance * cameraPos + meshCenter;
 
 		_camera.setView(glm::lookAt(m_cameraDistance * cameraPos + meshCenter, meshCenter, up));
 
 		// spawn particles
 		if (m_inputs->getKeyState(Actions::SPAWN_PARTICLE) == ActionState::PRESSED)
 		{
-			CreateComponents(_comps, _creator.create())
-				.add<components::Position>(glm::vec3(16.f, 16.f, -16.f))
-				.add<components::Rotation>(math::random::rotation())
-				.add<components::Velocity>(glm::vec3(0.f))
-				.add<components::Transform>(glm::identity<glm::mat4>())
-				.add<components::Model>(m_mesh, texture, glm::identity<glm::mat4>())
-				.add<components::TransformNeedsUpdate>()
-				.add<components::Charge>(0.1f, 10.f);
+			const auto s = _mesh.size();
+			const math::Box meshBound(glm::vec3(0.f), glm::vec3(s.x, s.y, s.z));
+
+			const math::Ray3D ray = _camera.getRay(m_cursorPos);
+			const float t = (static_cast<float>(slice.layer /** _mesh.cellSize().z*/) - ray.origin.z) 
+				/ ray.direction.z;
+			const glm::vec3 pos = ray.origin + t * ray.direction;
+			if (meshBound.isIn(pos))
+			{
+				CreateComponents(_comps, _creator.create())
+					.add<components::Position>(pos)
+					.add<components::Rotation>(math::random::rotation())
+					.add<components::Velocity>(glm::vec3(0.f))
+					.add<components::Transform>(glm::identity<glm::mat4>())
+					.add<components::Model>(m_mesh, texture, glm::identity<glm::mat4>())
+					.add<components::TransformNeedsUpdate>()
+					.add<components::Charge>(0.1f, 10.f)
+					.add<components::PreviousPosition>(pos);
+			}
 		}
 	}
 }}

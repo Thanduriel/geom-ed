@@ -1,3 +1,5 @@
+# comparison with a python implementation from https://github.com/flaport/fdtd
+
 import fdtd
 import numpy as np
 
