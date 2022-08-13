@@ -42,7 +42,7 @@ namespace systems {
 			, WriteAccess<components::Model>
 			, WriteAccess<components::TransformNeedsUpdate>
 			, ReadAccess<components::Slice>>;
-		void update(Components _components, const sim::CubicMesh<double>& _mesh);
+		void update(Components _components, const sim::SimpleCubicMesh& _mesh);
 
 	private:
 		std::vector<float> m_textureBuffer;

@@ -27,7 +27,7 @@ namespace systems {
 			ReadAccess<components::Slice>>;
 		void update(Components _comps, EntityCreator& _creator
 			, graphics::Camera& _camera
-			, const sim::CubicMesh<double>& _mesh);
+			, const sim::SimpleCubicMesh& _mesh);
 	private:
 		game::EntityRef m_activeSlice;
 		std::unique_ptr<input::InputInterface> m_inputs;

@@ -52,7 +52,7 @@ namespace systems{
 	{
 	}
 
-	void RenderSystem::update(Components _comps, const sim::CubicMesh<double>& _mesh)
+	void RenderSystem::update(Components _comps, const sim::SimpleCubicMesh& _mesh)
 	{
 		using namespace components;
 		// init new slices

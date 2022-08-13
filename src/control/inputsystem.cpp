@@ -6,6 +6,8 @@
 #include <engine/graphics/resources.hpp>
 #include <engine/math/random.hpp>
 #include <GLFW/glfw3.h>
+#include <numbers>
+
 
 namespace game {
 namespace systems {
@@ -19,7 +21,9 @@ namespace systems {
 		LAYER_DOWN,
 		CAMERA_FORWARD,
 		CAMERA_BACKWARD,
-		SPAWN_PARTICLE
+		CAMERA_ROTATE,
+		SPAWN_PARTICLE,
+		SPAWN_MOD
 	};
 
 	InputSystem::InputSystem()
@@ -28,9 +32,11 @@ namespace systems {
 			{"showB", Key::B},
 			{"layerUp", Key::UP},
 			{"layerDown", Key::DOWN},
-			{"cameraForward", MouseButton::LEFT},
-			{"cameraBackward", Key::DOWN},
-			{"spawnParticle", MouseButton::RIGHT} },
+			{"cameraForward", MouseButton::LEFT}, // not in use
+			{"cameraBackward", Key::DOWN}, // not in use
+			{"rotateCamera", MouseButton::LEFT},
+			{"spawnParticle", MouseButton::RIGHT},
+			{"spawnMod", Key::LEFT_SHIFT} },
 			{})),
 		m_cameraDistance(60.f),
 		m_rotationPhi(0.f),
@@ -85,12 +91,12 @@ namespace systems {
 		if (const float scroll = InputManager::getScroll().y)
 			m_cameraDistance -= scroll;
 
-		if (InputManager::isButtonPressed(MouseButton::LEFT))
+		if (m_inputs->isKeyPressed(Actions::CAMERA_ROTATE))
 		{
 			constexpr float rotSpeed = 0.02f;
 			const glm::vec2 cursorDiff = (m_cursorPos - InputManager::getCursorPos()) * rotSpeed;
 			m_rotationPhi -= cursorDiff.x;
-			m_rotationTheta = std::clamp(m_rotationTheta + cursorDiff.y, 0.f, 3.1415f);
+			m_rotationTheta = std::clamp(m_rotationTheta + cursorDiff.y, 0.f, std::numbers::pi_v<float>);
 		}
 		m_cursorPos = InputManager::getCursorPos();
 
@@ -110,7 +116,8 @@ namespace systems {
 		_camera.setView(glm::lookAt(m_cameraDistance * cameraPos + meshCenter, meshCenter, up));
 
 		// spawn particles
-		if (m_inputs->getKeyState(Actions::SPAWN_PARTICLE) == ActionState::PRESSED)
+		if (m_inputs->getKeyState(Actions::SPAWN_PARTICLE) == ActionState::PRESSED
+			|| (m_inputs->isKeyPressed(Actions::SPAWN_PARTICLE) && m_inputs->isKeyPressed(Actions::SPAWN_MOD)))
 		{
 			const auto s = _mesh.size();
 			const math::Box meshBound(glm::vec3(0.f), glm::vec3(s.x, s.y, s.z));

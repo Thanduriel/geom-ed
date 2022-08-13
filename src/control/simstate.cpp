@@ -12,7 +12,7 @@ namespace control {
 		: m_world(graphics::Camera(45.f, 0.1f, 500.f))
 	{
 		using FloatT = double;
-		using Mesh = sim::CubicMesh<FloatT>;
+		using Mesh = sim::SimpleCubicMesh;
 		using Index = Mesh::Index;
 
 #ifdef NDEBUG

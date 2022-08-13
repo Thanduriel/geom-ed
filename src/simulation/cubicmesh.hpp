@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <glm/glm.hpp>
 #include <memory>
 #include <random>
 #include <cassert>
@@ -32,24 +33,18 @@ namespace sim {
 		}
 	}
 
-	template<typename T>
-	struct Vec3 
-	{
-		Vec3& operator=(const Vec3& _rhs) { x = _rhs.x; y = _rhs.y; z = _rhs.z; return *this; }
-
-		T x, y, z;
-	};
 
 	// Cubic mesh with periodic boundary
-	template<typename T>
+	template<typename T, bool WithTimeInterpolation = false>
 	class CubicMesh
 	{
 	public:
 		using FloatT = T;
-		using Vec = Vec3<T>;
+		using Vec = glm::vec<3,T>;
 		using Index = int64_t;
 		using FlatIndex = std::size_t;
-		using SizeVec = Vec3<Index>;
+		using SizeVec = glm::vec<3, Index>;
+		using IndVec = glm::vec<3, Index>;
 
 		CubicMesh(const SizeVec& _gridSize, const Vec& _cellSize)
 			: m_size{ _gridSize }
@@ -58,6 +53,7 @@ namespace sim {
 			, m_E(new Vec[m_numElem]{})
 			, m_B(new Vec[m_numElem]{})
 			, m_J(new Vec[m_numElem]{})
+			, m_prevE(WithTimeInterpolation ? new Vec[m_numElem]{} : nullptr)
 		{
 			std::default_random_engine rng(0xA4FE1099);
 			std::uniform_real_distribution<T> dist(0.0, 1.0);
@@ -82,15 +78,52 @@ namespace sim {
 		const Vec& J(Index _x, Index _y, Index _z) const { return m_J[validFlatIndex({ _x,_y,_z })]; }
 		Vec& J(Index _x, Index _y, Index _z) { return m_J[validFlatIndex({ _x,_y,_z })]; }
 		
-		const Vec& smoothE(T _x, T _y, T _z) const { return E(static_cast<Index>(_x), static_cast<Index>(_y), static_cast<Index>(_z)); }
-		const Vec& smoothB(T _x, T _y, T _z) const { return B(static_cast<Index>(_x), static_cast<Index>(_y), static_cast<Index>(_z)); }
+		// Interpolated field values.
+		Vec smoothE(T _x, T _y, T _z) const 
+		{
+			IndVec bot = validIndex(IndVec(static_cast<Index>(_x)
+				, static_cast<Index>(_y)
+				, static_cast<Index>(_z)));
+			const IndVec top = validIndex(IndVec(static_cast<Index>(std::ceil(_x))
+				, static_cast<Index>(std::ceil(_y))
+				, static_cast<Index>(std::ceil(_z))));
+			const Vec l1(_x - bot.x, _y - bot.y, _z - bot.z);
+
+			if constexpr (WithTimeInterpolation)
+			{
+				// E lives at half time-steps
+				return T(0.5) * triLerp(bot, top, l1, m_E.get())
+					+ T(0.5) * triLerp(bot, top, l1, m_prevE.get());
+			}
+			return triLerp(bot, top, l1, m_E.get());
+		}
+		Vec smoothB(T _x, T _y, T _z) const 
+		{
+			IndVec bot = validIndex(IndVec(static_cast<Index>(_x)
+				, static_cast<Index>(_y)
+				, static_cast<Index>(_z)));
+			const IndVec top = validIndex(IndVec(static_cast<Index>(std::ceil(_x))
+				, static_cast<Index>(std::ceil(_y))
+				, static_cast<Index>(std::ceil(_z))));
+			const Vec l1(_x - bot.x, _y - bot.y, _z - bot.z);
+
+			return triLerp(bot, top, l1, m_B.get());
+		}
 
 		// raw access to the fields
 		const Vec* E() const { return m_E.get(); }
+		Vec* E() { return m_E.get(); }
 		const Vec* B() const { return m_B.get(); }
+		const Vec* J() const { return m_J.get(); }
+		const Vec* prevE() const 
+		{
+			if constexpr (WithTimeInterpolation)
+				return m_prevE.get();
+			return m_E.get();
+		}
 
 		// Evaluate the charge density on the grid cell.
-		// This should be conserved.
+		// This quantity is conserved.
 		T p(Index _x, Index _y, Index _z) const 
 		{ 
 			const Vec& E_ = E(_x, _y, _z);
@@ -110,9 +143,9 @@ namespace sim {
 		}
 
 		// Returns a valid index by handling periodic boundary conditions.
-		SizeVec validIndex(const SizeVec& _ind) const
+		IndVec validIndex(const IndVec& _ind) const
 		{
-			SizeVec v{ _ind.x % m_size.x, _ind.y % m_size.y, _ind.z % m_size.z };
+			IndVec v{ _ind.x % m_size.x, _ind.y % m_size.y, _ind.z % m_size.z };
 			if (v.x < 0) v.x += m_size.x;
 			if (v.y < 0) v.y += m_size.y;
 			if (v.z < 0) v.z += m_size.z;
@@ -120,9 +153,9 @@ namespace sim {
 		}
 
 		template<std::floating_point T>
-		Vec3<T> validPosition(T _x, T _y, T _z) const
+		Vec validPosition(T _x, T _y, T _z) const
 		{
-			Vec3<T> v{ std::fmod(_x, static_cast<T>(m_size.x))
+			Vec v{ std::fmod(_x, static_cast<T>(m_size.x))
 				, std::fmod(_y, static_cast<T>(m_size.y))
 				, std::fmod(_z, static_cast<T>(m_size.z)) };
 			if (v.x < 0.f) v.x += m_size.x;
@@ -131,12 +164,12 @@ namespace sim {
 			return v;
 		}
 
-		FlatIndex flatIndex(const SizeVec& _ind) const
+		FlatIndex flatIndex(const IndVec& _ind) const
 		{
 			return static_cast<FlatIndex>(_ind.x + _ind.y * m_size.x + _ind.z * m_size.x * m_size.y);
 		}
 
-		FlatIndex validFlatIndex(const SizeVec& _ind) const
+		FlatIndex validFlatIndex(const IndVec& _ind) const
 		{
 			const FlatIndex flatIdx = flatIndex(validIndex(_ind));
 			assert(flatIdx < m_numElem);
@@ -146,11 +179,36 @@ namespace sim {
 		const SizeVec size() const { return m_size; }
 		const Vec& cellSize() const { return m_cellSize; }
 		FlatIndex numElem() const { return m_numElem; }
+		void swapE() 
+		{
+			if constexpr(WithTimeInterpolation)
+				std::swap(m_E, m_prevE); 
+		}
 	private:
+		Vec triLerp(const IndVec bot, const IndVec top, Vec l1, const Vec* data) const
+		{
+			const Vec l0 = Vec(1.0) - l1;
+
+			// no bound checks necessary if we assume that bot and top are valid
+			auto v = [this,data](Index x, Index y, Index z) 
+				{ return data[flatIndex(IndVec(x, y, z))]; };
+
+			const Vec c00 = l0.x * v(bot.x, bot.y, bot.z) + l1.x * v(top.x, bot.y, bot.z);
+			const Vec c01 = l0.x * v(bot.x, bot.y, top.z) + l1.x * v(top.x, bot.y, top.z);
+			const Vec c10 = l0.x * v(bot.x, top.y, bot.z) + l1.x * v(top.x, top.y, bot.z);
+			const Vec c11 = l0.x * v(bot.x, top.y, top.z) + l1.x * v(top.x, top.y, top.z);
+
+			const Vec c0 = l0.y * c00 + l1.y * c10;
+			const Vec c1 = l0.y * c01 + l1.y * c11;
+
+			return l0.z * c0 + l1.z * c1;
+		}
+
 		SizeVec m_size;
 		Vec m_cellSize;
 		FlatIndex m_numElem;
 		std::unique_ptr<Vec[]> m_E;
+		std::unique_ptr<Vec[]> m_prevE;
 		std::unique_ptr<Vec[]> m_B;
 		std::unique_ptr<Vec[]> m_J;
 	};
@@ -173,14 +231,15 @@ namespace sim {
 				std::cout << "[Warning] The step-size is to large, the simulation will be unstable.\n";
 		}
 
-		
-
-		void step(CubicMesh<T>& _mesh)
+		template<bool TimeInterpol>
+		void step(CubicMesh<T, TimeInterpol>& mesh)
 		{
-			CubicMesh<T>& mesh = _mesh;
-			using Index = CubicMesh<T>::Index;
+			using Mesh = CubicMesh<T, TimeInterpol>;
+			using Index = Mesh::Index;
+			using Vec = Mesh::Vec;
+			using IndVec = Mesh::IndVec;
 			const auto& size = mesh.size();
-			const Vec3<T>& cellSize = mesh.cellSize();
+			const Vec& cellSize = mesh.cellSize();
 
 			// dF = 0
 			runMultiThreaded(int64_t(0), size.z, [&] (Index zStart, Index zEnd)
@@ -189,8 +248,8 @@ namespace sim {
 						for (Index iy = 0; iy < size.y; ++iy)
 							for (Index ix = 0; ix < size.x; ++ix)
 							{
-								Vec3<T>& B = mesh.B(ix, iy, iz);
-								const Vec3<T>& E = mesh.E(ix, iy, iz);
+								Vec& B = mesh.B(ix, iy, iz);
+								const Vec& E = mesh.E(ix, iy, iz);
 								B.x += m_dt * ((mesh.E(ix, iy, iz + 1).y - E.y) / cellSize.z
 									- (mesh.E(ix, iy + 1, iz).z - E.z) / cellSize.y);
 								B.y += m_dt * ((mesh.E(ix + 1, iy, iz).z - E.z) / cellSize.x
@@ -199,6 +258,8 @@ namespace sim {
 									- (mesh.E(ix + 1, iy, iz).y - E.y) / cellSize.x);
 							}
 				}, m_numThreads);
+
+			mesh.swapE();
 			
 			// d*F = J'
 			runMultiThreaded(int64_t(0), size.z, [&](Index zStart, Index zEnd)
@@ -208,16 +269,18 @@ namespace sim {
 							for (Index ix = 0; ix < size.x; ++ix)
 							{
 								constexpr T κE = 1.0;
-								const Vec3<T>& H = mesh.H(ix, iy, iz);
-								const Vec3<T>& J = mesh.J(ix, iy, iz);
-								Vec3<T>& E = mesh.E(ix, iy, iz);
-								E.x = κE * E.x + m_dt * ((H.z - mesh.H(ix, iy - 1, iz).z) / cellSize.y
+								const auto idx = mesh.flatIndex({ ix, iy, iz });
+								const Vec& H = mesh.B()[idx];
+								const Vec& J = mesh.J()[idx];
+								Vec& E = mesh.E()[idx];
+								const Vec& prevE = mesh.prevE()[idx];
+								E.x = κE * prevE.x + m_dt * ((H.z - mesh.H(ix, iy - 1, iz).z) / cellSize.y
 									- (H.y - mesh.H(ix, iy, iz - 1).y) / cellSize.z
 									- J.x);
-								E.y = κE * E.y + m_dt * ((H.x - mesh.H(ix, iy, iz - 1).x) / cellSize.z
+								E.y = κE * prevE.y + m_dt * ((H.x - mesh.H(ix, iy, iz - 1).x) / cellSize.z
 									- (H.z - mesh.H(ix - 1, iy, iz).z) / cellSize.x
 									- J.y);
-								E.z = κE * E.z + m_dt * ((H.y - mesh.H(ix - 1, iy, iz).y) / cellSize.x
+								E.z = κE * prevE.z + m_dt * ((H.y - mesh.H(ix - 1, iy, iz).y) / cellSize.x
 									- (H.x - mesh.H(ix, iy - 1, iz).x) / cellSize.y
 									- J.z);
 							}
@@ -231,6 +294,6 @@ namespace sim {
 		int m_numThreads;
 	};
 
-	using SimpleCubicMesh = CubicMesh<double>;
+	using SimpleCubicMesh = CubicMesh<double, true>;
 	using SimpleCubicIntegrator = CubicIntegrator<double>;
 }
